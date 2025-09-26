@@ -53,6 +53,7 @@ export const login = async (req, res) => {
         return res.status(500).json({ error: "Internal server error" });
     }
 };
+
 export const buySong = async (req, res) => {
     try {
         const { songId } = req.params;
@@ -85,5 +86,26 @@ export const buySong = async (req, res) => {
     }
 };
 
+export const getAllSongs = async (req, res) => {
+    try {
+        // Populate artist information with the song data
+        const songs = await Song.find()
+            .populate('artistId', 'suiAddress stageName')
+            .sort({ createdAt: -1 })
+            .limit(50); // Limit to 50 most recent songs
 
+        res.status(200).json({
+            success: true,
+            songs
+        });
+    } catch (err) {
+        console.error("Error fetching songs:", err);
+        res.status(500).json({ success: false, error: "Internal server error" });
+    }
+};
 
+export default {
+    login,
+    buySong,
+    getAllSongs
+};

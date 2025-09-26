@@ -5,7 +5,8 @@ import dotenv from "dotenv";
 import artistRouter from "./route/ArtistRoute.js";
 import fanRouter from "./route/FanRoute.js";
 import cors from "cors";
-
+import { createServer } from "http";
+import { Server } from "socket.io";
 
 import session from "express-session";
 import adminRouter from "./route/AdminRoute.js"
@@ -13,6 +14,57 @@ import adminRouter from "./route/AdminRoute.js"
 dotenv.config();
 
 const app = express();
+
+// Create HTTP server
+const server = createServer(app);
+
+// Initialize Socket.IO
+const io = new Server(server, {
+  cors: {
+    origin: [
+      "http://localhost:3000",
+      "http://localhost:3001",
+      process.env.FRONTEND_URL,
+    ].filter(Boolean),
+    methods: ["GET", "POST"],
+    credentials: true
+  }
+});
+
+// Store active fan connections
+const fanConnections = new Map();
+
+// Socket.IO connection handling
+io.on('connection', (socket) => {
+  console.log('User connected:', socket.id);
+
+  // Fan registers for updates
+  socket.on('registerFan', (fanId) => {
+    fanConnections.set(fanId, socket.id);
+    console.log(`Fan ${fanId} registered for updates`);
+  });
+
+  // Artist registers for updates
+  socket.on('registerArtist', (artistId) => {
+    // Artists might want to receive notifications too
+    console.log(`Artist ${artistId} registered for updates`);
+  });
+
+  // Handle disconnection
+  socket.on('disconnect', () => {
+    console.log('User disconnected:', socket.id);
+    // Remove fan from connections map
+    for (let [fanId, socketId] of fanConnections) {
+      if (socketId === socket.id) {
+        fanConnections.delete(fanId);
+        break;
+      }
+    }
+  });
+});
+
+// Make io available to other modules
+app.set('io', io);
 
 app.use(session({
     secret: process.env.JWT_SECRET || 'fallback_secret_key',
@@ -79,7 +131,8 @@ mongoose
     .then(async () => {
         console.log("✅ MongoDB connected");
         await seedAdmin();
-        const server = app.listen(PORT, () => {
+        // Use the HTTP server instead of app.listen
+        server.listen(PORT, () => {
             console.log(`🚀 Server running on http://localhost:${PORT}`);
         });
 

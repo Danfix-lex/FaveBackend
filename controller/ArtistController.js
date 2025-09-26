@@ -3,6 +3,7 @@ import Song from "../data/models/Song.js";
 import Fan from "../data/models/Fan.js";
 import { TransactionBlock } from "@mysten/sui.js/transactions";
 import {signer, suiClient} from "../middleware/suiClient.js";
+import { emitSongListed } from "../utils/websocket.js";
 
 export const login = async (req, res) => {
     try {
@@ -108,6 +109,21 @@ export const listSong = async (req, res) =>{
                 options: { showEffects: true },
             });
             await newSong.save();
+            
+            // Emit real-time update to all connected fans
+            const io = req.app.get('io');
+            if (io) {
+                emitSongListed(io, {
+                    song: newSong,
+                    artist: {
+                        _id: artist._id,
+                        suiAddress: artist.suiAddress,
+                        stageName: artist.stageName
+                    },
+                    timestamp: new Date()
+                });
+            }
+            
             res.json({success: true, message: "Song listed successfully", newSong});
             return result
         }
